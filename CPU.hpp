@@ -58,11 +58,22 @@ private:
 	uint8_t fetch();
 	uint8_t fetched = 0x00;
 	
+	struct INSTRUCTION
+	{	
+		uint8_t     (cpu::*operation)(void) = nullptr;
+		uint8_t     (cpu::*addressmode)(void) = nullptr;
+		uint8_t     ncycles = 0;
+	};
+
+	std::vector<INSTRUCTION> instructionTable;
+	
 	
 	uint16_t addr_abs = 0x0000;
 	uint16_t addr_rel = 0x00;
 	uint8_t opcode = 0x00; //current operation being solved
 	uint8_t cycles = 0; //number of cycles left for current operation
+	
+	uint8_t instructionNumCycles = 0; //total number of cycles required for instruction currently being executed
 	
 private:
     Bus *addr_bus;
