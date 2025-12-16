@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
+
 class Bus;
 
 class CPU
@@ -27,13 +31,14 @@ public:
     uint8_t status = 0x00;	
 	
 	void setBus(Bus *bus_pointer);
+	void clock();
 	
 private:
 	// Addressing modes functions (they dont in fact do the reading, they just set the register to the right values)
 	uint8_t IMP(); uint8_t IMM();
 	uint8_t ZP0(); uint8_t ZPX();
 	uint8_t ZPY(); uint8_t REL();
-	uint8_t ABS(); uint8_t APX();
+	uint8_t ABS(); uint8_t ABX();
 	uint8_t ABY(); uint8_t IND();
 	uint8_t IZX(); uint8_t IZY();
 	
@@ -50,6 +55,8 @@ private:
     uint8_t ASL(); uint8_t LSR(); uint8_t ROL(); uint8_t ROR(); //Shift
     uint8_t NOP(); //Other
 	
+	uint8_t invalidOP(); //Invalid/Unimplemented opcode
+
 	void clock();
 	void reset();
 	void irq(); //interrupt request
@@ -60,8 +67,8 @@ private:
 	
 	struct INSTRUCTION
 	{	
-		uint8_t     (cpu::*operation)(void) = nullptr;
-		uint8_t     (cpu::*addressmode)(void) = nullptr;
+		uint8_t     (CPU::*operation)(void) = nullptr;
+		uint8_t     (CPU::*addressmode)(void) = nullptr;
 		uint8_t     ncycles = 0;
 	};
 
@@ -71,7 +78,7 @@ private:
 	uint16_t addr_abs = 0x0000;
 	uint16_t addr_rel = 0x00;
 	uint8_t opcode = 0x00; //current operation being solved
-	uint8_t cycles = 0; //number of cycles left for current operation
+	uint8_t cyclesleft = 0; //number of cycles left for current operation
 	
 	uint8_t instructionNumCycles = 0; //total number of cycles required for instruction currently being executed
 	
@@ -81,6 +88,6 @@ private:
 	uint8_t read(uint16_t addr);
     void write (uint16_t addr, uint8_t data);
 	
-	uint8_t GetFlag(FLAGs f);
+	uint8_t GetFlag(FLAGS f);
 	void SetFlag(FLAGS f, bool value);
 };
