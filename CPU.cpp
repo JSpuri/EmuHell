@@ -37,7 +37,23 @@ void CPU::clock(){
 	if (cyclesleft == 0)
 	{
 		opcode = read(pc);
+		pc++;
+
+		cyclesleft = instructionTable[opcode].ncycles;
+
+		(this->*instructionTable[opcode].addressmode)();
+		(this->*instructionTable[opcode].operation)();
+
+
+		//instructions may need an extra cycle, so we`re checking for that here and adding it if necessary
+		//our funtions return 1 if an extra cycle is needed, 0 otherwise
+		uint8_t extra_cycle1 = 0;
+		uint8_t extra_cycle2 = 0;
+
+		cyclesleft += (extra_cycle1 & extra_cycle2);
 	}
+
+	cyclesleft--;
 	
 }
 
@@ -49,4 +65,151 @@ uint8_t CPU::CPU::read(uint16_t addr)
 void CPU::CPU::write(uint16_t addr, uint8_t data)
 {
 	addr_bus->write(addr, data);
+}
+
+//Addressing Modes
+
+uint8_t CPU::IMP()
+{
+	fetched = accumulator;
+	return 0;
+}
+
+uint8_t CPU::IMM()
+{
+	addr_abs = pc++;
+	return 0;
+}
+
+//zero page reading only needs the first 8 bits of the address, so we mask the higher bits
+uint8_t CPU::ZP0()
+{
+	addr_abs = read(pc);
+	pc++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+uint8_t CPU::ZPX()
+{
+	addr_abs = read(pc) + x_reg;
+	pc++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+uint8_t CPU::ZPY()
+{
+	addr_abs = read(pc) + y_reg;
+	pc++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+uint8_t CPU::REL()
+{
+	addr_rel = read(pc);
+	pc++;
+	if (addr_rel & 0x80) //if the offset is negative we need to set all the higher bits to 1s, since we're working with two`s complement
+	{
+		addr_rel |= 0xFF00;
+	}
+	return 0;
+}
+
+//absolute addressing reads two bytes to form the full 16 bit address
+uint8_t CPU::ABS()
+{
+	uint16_t lo = read(pc);
+	pc++;
+	uint16_t hi = read(pc);
+	pc++;
+	addr_abs = (hi << 8) | lo;
+	return 0;
+}
+
+//both ABX and ABY may need an extra cycle if a page boundary is crossed
+uint8_t CPU::ABX()
+{
+	uint16_t lo = read(pc);
+	pc++;
+	uint16_t hi = read(pc);
+	pc++;
+	addr_abs = (hi << 8) | lo;
+	addr_abs += x_reg;
+	if ((addr_abs & 0xFF00) != (hi << 8))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+uint8_t CPU::ABY()
+{
+	uint16_t lo = read(pc);
+	pc++;
+	uint16_t hi = read(pc);
+	pc++;
+	addr_abs = (hi << 8) | lo;
+	addr_abs += y_reg;
+	if ((addr_abs & 0xFF00) != (hi << 8))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+uint8_t CPU::IND()
+{
+	uint16_t pointer_lo = read(pc);
+	pc++;
+	uint16_t pointer_hi = read(pc);
+	pc++;
+	uint16_t pointer = (pointer_hi << 8) | pointer_lo;
+	//this adressing mode is exclusive to the JMP instruction, which has a bug in the original 6502 that prevents page crossing when reading from the pointer location
+	if (pointer_lo == 0x00FF) //if the adress ends in 0xFF page crossing occurs, and thus the bug happens 
+	{
+		addr_abs = (read(pointer & 0xFF00) << 8) | read(pointer);
+	}
+	else
+	{
+		addr_abs = (read(pointer + 1) << 8) | read(pointer);
+	}
+	return 0;
+}
+
+//x_reg is added to the zero page address, and then the final address is read from there
+uint8_t CPU::IZX()
+{
+	uint16_t zerop_addr = read(pc);
+	pc++;
+	uint16_t lo = read((uint16_t)(zerop_addr + (uint16_t)x_reg) & 0x00FF);
+	uint16_t hi = read((uint16_t)(zerop_addr + (uint16_t)x_reg + 1) & 0x00FF);
+	addr_abs = (hi << 8) | lo;
+	return 0;
+}
+
+//y_reg is added to the final address after reading it from the zero page address, aditional cycle may be needed if page boundary is crossed
+uint8_t CPU::IZY()
+{
+	uint16_t zerop_addr = read(pc);
+	pc++;
+	uint16_t lo = read(zerop_addr & 0x00FF);
+	uint16_t hi = read((zerop_addr + 1) & 0x00FF);
+	addr_abs = (hi << 8) | lo;
+	addr_abs += y_reg;
+	if ((addr_abs & 0xFF00) != (hi << 8))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
 }
