@@ -51,7 +51,7 @@ private:
     uint8_t CLC(); uint8_t CLD(); uint8_t CLI(); uint8_t CLV(); uint8_t SEC(); uint8_t SED(); uint8_t SEI(); //Flags
     uint8_t BRK(); uint8_t JMP(); uint8_t JSR(); uint8_t RTI(); uint8_t RTS(); //Jump
     uint8_t PHA(); uint8_t PHP(); uint8_t PLA(); uint8_t PLP(); uint8_t TSX(); uint8_t TXS(); //Stack
-    uint8_t TAX(); uint8_t TAY(); uint8_t TXA(); uint8_t TXY(); uint8_t TYA(); //Transfer
+    uint8_t TAX(); uint8_t TAY(); uint8_t TXA(); uint8_t TYA(); //Transfer
     uint8_t ASL(); uint8_t LSR(); uint8_t ROL(); uint8_t ROR(); //Shift
     uint8_t NOP(); //Other
 	

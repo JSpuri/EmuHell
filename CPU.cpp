@@ -213,3 +213,600 @@ uint8_t CPU::IZY()
 		return 0;
 	}
 }
+
+//Opcodes implementations
+
+//Access
+uint8_t CPU::LDA()
+{
+	fetched = read(addr_abs);
+	accumulator = fetched;
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 1;
+}
+
+uint8_t CPU::LDX()
+{
+	fetched = read(addr_abs);
+	x_reg = fetched;
+	SetFlag(Z, x_reg == 0x00);
+	SetFlag(N, x_reg & 0x80);
+	return 1;
+}
+
+uint8_t CPU::LDY()
+{
+	fetched = read(addr_abs);
+	y_reg = fetched;
+	SetFlag(Z, y_reg == 0x00);
+	SetFlag(N, y_reg & 0x80);
+	return 1;
+}
+
+uint8_t CPU::STA()
+{
+	write(addr_abs, accumulator);
+	return 0;
+}
+
+uint8_t CPU::STX()
+{
+	write(addr_abs, x_reg);
+	return 0;
+}
+
+uint8_t CPU::STY()
+{
+	write(addr_abs, y_reg);
+	return 0;
+}
+
+//arithmetic
+uint8_t CPU::ADC()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)accumulator + (uint16_t)fetched + (uint16_t)GetFlag(C);
+	SetFlag(C, temp > 0x00FF);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	SetFlag(V, (~((uint16_t)accumulator ^ (uint16_t)fetched) & ((uint16_t)accumulator ^ (uint16_t)temp)) & 0x0080); //overflow happens when both the acumulator and the value added to it have the same sign and the result has a different sign
+	accumulator = temp & 0x00FF;
+	return 1;
+}
+
+uint8_t CPU::DEC()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)fetched - 1;
+	write(addr_abs, temp & 0x00FF);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	return 0;
+}
+
+uint8_t CPU::DEX()
+{
+	x_reg--;
+	SetFlag(Z, x_reg == 0x00);
+	SetFlag(N, x_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::DEY()
+{
+	y_reg--;
+	SetFlag(Z, y_reg == 0x00);
+	SetFlag(N, y_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::INC()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)fetched + 1;
+	write(addr_abs, temp & 0x00FF);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	return 0;
+}
+
+uint8_t CPU::INX()
+{
+	x_reg++;
+	SetFlag(Z, x_reg == 0x00);
+	SetFlag(N, x_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::INY()
+{
+	y_reg++;
+	SetFlag(Z, y_reg == 0x00);
+	SetFlag(N, y_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::SBC()
+{
+	fetched = read(addr_abs);
+	uint16_t value = (uint16_t)fetched ^ 0x00FF; //we can use the same logic as ADC by inverting all the bits of the value to be subtracted
+	uint16_t temp = (uint16_t)accumulator + value + (uint16_t)GetFlag(C);
+	SetFlag(C, temp > 0x00FF);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	SetFlag(V, (((uint16_t)accumulator ^ temp) & (value ^ temp)) & 0x0080); //overflow happens when both the acumulator and the value added to it have different signs and the result has the same sign as the value
+	accumulator = temp & 0x00FF;
+	return 1;
+}
+
+//bitwise
+uint8_t CPU::AND()
+{
+	fetched = read(addr_abs);
+	accumulator = accumulator & fetched;
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 1;
+}
+
+uint8_t CPU::BIT()
+{
+	fetched = read(addr_abs);
+	uint8_t temp = accumulator & fetched;
+	SetFlag(Z, (temp == 0x00));
+	SetFlag(N, fetched & 0x80);
+	SetFlag(V, fetched & 0x40);
+	return 0;
+}
+
+uint8_t CPU::EOR()
+{
+	fetched = read(addr_abs);
+	accumulator = accumulator ^ fetched;
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 1;
+}
+
+uint8_t CPU::ORA()
+{
+	fetched = read(addr_abs);
+	accumulator = accumulator | fetched;
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 1;
+}
+
+//branching
+uint8_t CPU::BCC()
+{
+	if (GetFlag(C) == 0)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+uint8_t CPU::BCS()
+{
+	if (GetFlag(C) == 1)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+uint8_t CPU::BEQ()
+{
+	if (GetFlag(Z) == 1)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+uint8_t CPU::BNE()
+{
+	if (GetFlag(Z) == 0)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+uint8_t CPU::BMI()
+{
+	if (GetFlag(N) == 1)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+uint8_t CPU::BPL()
+{
+	if (GetFlag(N) == 0)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}	
+
+uint8_t CPU::BVC()
+{
+	if (GetFlag(V) == 0)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+uint8_t CPU::BVS()
+{
+	if (GetFlag(V) == 1)
+	{
+		cyclesleft++;
+		uint16_t temp_addr = pc + addr_rel;
+		if ((temp_addr & 0xFF00) != (pc & 0xFF00))
+		{
+			cyclesleft++;
+		}
+		pc = temp_addr;
+	}
+	return 0;
+}
+
+//compare
+uint8_t CPU::CMP()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)accumulator - (uint16_t)fetched;
+	SetFlag(C, accumulator >= fetched);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	return 1;
+}
+
+uint8_t CPU::CPX()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)x_reg - (uint16_t)fetched;
+	SetFlag(C, x_reg >= fetched);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	return 1;
+}
+
+uint8_t CPU::CPY()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)y_reg - (uint16_t)fetched;
+	SetFlag(C, y_reg >= fetched);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	return 1;
+}
+
+//flags
+uint8_t CPU::CLC()
+{
+	SetFlag(C, false);
+	return 0;
+}
+
+
+uint8_t CPU::CLD() //nes actually has the decimal mode permanently disabled, but we can still use it to store a state
+{
+	SetFlag(D, false);
+	return 0;
+}
+
+uint8_t CPU::CLI()
+{
+	SetFlag(I, false);
+	return 0;
+}
+
+uint8_t CPU::CLV() //there is no set overflow equivalent instruction, which is done on the 6502 by external hardware
+{
+	SetFlag(V, false);
+	return 0;
+}
+
+uint8_t CPU::SEC()
+{
+	SetFlag(C, true);
+	return 0;
+}
+
+uint8_t CPU::SED()
+{
+	SetFlag(D, true);
+	return 0;
+}
+
+uint8_t CPU::SEI()
+{
+	SetFlag(I, true);
+	return 0;
+}
+
+//Jump
+uint8_t CPU::BRK()
+{
+	pc++;
+	SetFlag(I, true);
+	write(0x0100 + stackp, (pc >> 8) & 0x00FF);
+	stackp--;
+	write(0x0100 + stackp, pc & 0x00FF);
+	stackp--;
+	SetFlag(B, true);
+	write(0x0100 + stackp, status);
+	stackp--;
+	SetFlag(B, false);
+	uint16_t lo = read(0xFFFE);
+	uint16_t hi = read(0xFFFF);
+	pc = (hi << 8) | lo;
+	return 0;
+}
+
+uint8_t CPU::JMP()
+{
+	pc = addr_abs;
+	return 0;
+}
+
+uint8_t CPU::JSR()
+{
+	pc--;
+	write(0x0100 + stackp, (pc >> 8) & 0x00FF);
+	stackp--;
+	write(0x0100 + stackp, pc & 0x00FF);
+	stackp--;
+	pc = addr_abs;
+	return 0;
+}
+
+uint8_t CPU::RTI()
+{
+	stackp++;
+	status = read(0x0100 + stackp);
+	SetFlag(B, false);
+	SetFlag(U, true);
+	stackp++;
+	uint16_t lo = read(0x0100 + stackp);
+	stackp++;
+	uint16_t hi = read(0x0100 + stackp);
+	pc = (hi << 8) | lo;
+	return 0;
+}
+
+uint8_t CPU::RTS()
+{
+	stackp++;
+	uint16_t lo = read(0x0100 + stackp);
+	stackp++;
+	uint16_t hi = read(0x0100 + stackp);
+	pc = ((hi << 8) | lo);
+	pc++;
+	return 0;
+}
+
+//stack manipulation
+uint8_t CPU::PHA()
+{
+	write(0x0100 + stackp, accumulator);
+	stackp--;
+	return 0;
+}
+
+uint8_t CPU::PHP()
+{
+	write(0x0100 + stackp, status | B | U); //both break and unused flags are set when pushing to stack
+	SetFlag(B, false);
+	SetFlag(U, true);
+	stackp--;
+	return 0;
+}
+
+uint8_t CPU::PLA()
+{
+	stackp++;
+	accumulator = read(0x0100 + stackp);
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 0;
+}
+
+uint8_t CPU::PLP()
+{
+	stackp++;
+	status = read(0x0100 + stackp);
+	SetFlag(U, true);
+	return 0;
+}
+
+uint8_t CPU::TSX()
+{
+	x_reg = stackp;
+	SetFlag(Z, x_reg == 0x00);
+	SetFlag(N, x_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::TXS()
+{
+	stackp = x_reg;
+	return 0;
+}
+
+//transfer
+uint8_t CPU::TAX()
+{
+	x_reg = accumulator;
+	SetFlag(Z, x_reg == 0x00);
+	SetFlag(N, x_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::TAY()
+{
+	y_reg = accumulator;
+	SetFlag(Z, y_reg == 0x00);
+	SetFlag(N, y_reg & 0x80);
+	return 0;
+}
+
+uint8_t CPU::TXA()
+{
+	accumulator = x_reg;
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 0;
+}
+
+uint8_t CPU::TYA()
+{
+	accumulator = y_reg;
+	SetFlag(Z, accumulator == 0x00);
+	SetFlag(N, accumulator & 0x80);
+	return 0;
+}
+
+//shift
+uint8_t CPU::ASL()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = (uint16_t)fetched << 1;
+	SetFlag(C, (temp & 0xFF00) > 0);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	if (instructionTable[opcode].addressmode == &CPU::IMP)
+	{
+		accumulator = temp & 0x00FF;
+	}
+	else
+	{
+		write(addr_abs, temp & 0x00FF);
+	}
+	return 0;
+}
+
+uint8_t CPU::LSR()
+{
+	fetched = read(addr_abs);
+	SetFlag(C, fetched & 0x01);
+	uint16_t temp = (uint16_t)fetched >> 1;
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	if (instructionTable[opcode].addressmode == &CPU::IMP)
+	{
+		accumulator = temp & 0x00FF;
+	}
+	else
+	{
+		write(addr_abs, temp & 0x00FF);
+	}
+	return 0;
+}
+
+uint8_t CPU::ROL()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = ((uint16_t)fetched << 1) | (uint16_t)GetFlag(C);
+	SetFlag(C, (temp & 0xFF00) > 0);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	if (instructionTable[opcode].addressmode == &CPU::IMP)
+	{
+		accumulator = temp & 0x00FF;
+	}
+	else
+	{
+		write(addr_abs, temp & 0x00FF);
+	}
+	return 0;
+}
+
+uint8_t	CPU::ROR()
+{
+	fetched = read(addr_abs);
+	uint16_t temp = ((uint16_t)GetFlag(C) << 7) | ((uint16_t)fetched >> 1);
+	SetFlag(C, fetched & 0x01);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x80);
+	if (instructionTable[opcode].addressmode == &CPU::IMP)
+	{
+		accumulator = temp & 0x00FF;
+	}
+	else
+	{
+		write(addr_abs, temp & 0x00FF);
+	}
+	return 0;
+}
+
+uint8_t CPU::NOP()
+{
+	//here i'm using the opcodes of the unofficial instrucions that one lone coder provided in his code, maybe after everything else is working i'll implement all of them
+	switch (opcode) {
+	case 0x1C:
+	case 0x3C:
+	case 0x5C:
+	case 0x7C:
+	case 0xDC:
+	case 0xFC:
+		return 1;
+		break;
+	}
+	return 0;
+}
+
+//illegal opcode
+uint8_t CPU::invalidOP()
+{
+	return 0;
+}
