@@ -59,8 +59,8 @@ private:
 
 	void clock();
 	void reset();
-	void irq(); //interrupt request
-	void nmi(); //non maskable interrupt request
+	void IRQ(); //interrupt request
+	void NMI(); //non maskable interrupt request
 	
 	uint8_t fetch();
 	uint8_t fetched = 0x00;

@@ -614,7 +614,7 @@ uint8_t CPU::RTI()
 {
 	stackp++;
 	status = read(0x0100 + stackp);
-	SetFlag(B, false);
+	SetFlag(B, false); //B flag is always false after nmi or irq
 	SetFlag(U, true);
 	stackp++;
 	uint16_t lo = read(0x0100 + stackp);
@@ -809,4 +809,65 @@ uint8_t CPU::NOP()
 uint8_t CPU::invalidOP()
 {
 	return 0;
+}
+
+
+void CPU::reset()
+{
+	addr_abs = 0x0000;
+	addr_rel = 0x0000;
+	fetched = 0x00;
+	x_reg = 0x00;
+	y_reg = 0x00;
+	accumulator = 0x00;
+	stackp = 0xFD;
+	status = 0x00 | U;
+
+	//the nes CPU reset vector is located at 0xFFFC and coitains a 16 bit address to set the program counter to
+	uint16_t lo = read(0xFFFC);
+	uint16_t hi = read(0xFFFD);
+	pc = (hi << 8) | lo;
+
+	cyclesleft = 8;
+}
+
+void CPU::IRQ()
+{
+	if (GetFlag(I) == 0)
+	{
+		write(0x0100 + stackp, (pc >> 8) & 0x00FF);
+		stackp--;
+		write(0x0100 + stackp, pc & 0x00FF);
+		stackp--;
+		SetFlag(B, false);
+		SetFlag(U, true);
+		write(0x0100 + stackp, status);
+		stackp--;
+		SetFlag(I, true);
+
+		//the nes CPU IRQ vector is located at 0xFFFE and contains a 16 bit address to set the program counter to
+		uint16_t lo = read(0xFFFE);
+		uint16_t hi = read(0xFFFF);
+		pc = (hi << 8) | lo;
+		cyclesleft = 7;
+	}
+}
+
+void CPU::NMI()
+{
+	write(0x0100 + stackp, (pc >> 8) & 0x00FF);
+	stackp--;
+	write(0x0100 + stackp, pc & 0x00FF);
+	stackp--;
+	SetFlag(B, false);
+	SetFlag(U, true);
+	write(0x0100 + stackp, status);
+	stackp--;
+	SetFlag(I, true);
+
+	//the nes CPU NMI vector is located at 0xFFFA and contains a 16 bit address to set the program counter to
+	uint16_t lo = read(0xFFFA);
+	uint16_t hi = read(0xFFFB);
+	pc = (hi << 8) | lo;
+	cyclesleft = 8;
 }
